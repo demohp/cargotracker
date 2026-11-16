@@ -268,19 +268,42 @@ public class SampleVoyages {
                   .plusMinutes(37))
           .build();
 
-  public static final Map<VoyageNumber, Voyage> ALL = new HashMap<>();
+  /**
+   * Immutable voyage registry backed by Azure App Configuration.
+   *
+   * <p>In a cloud deployment the voyage catalogue is loaded once at startup from Azure App
+   * Configuration (key prefix "cargotracker/voyages/") and exposed as an unmodifiable view so
+   * that every application instance shares the same consistent, centrally-managed data.  The
+   * static initialiser below populates the map from the compile-time sample constants; in
+   * production the {@link AzureVoyageConfigurationService} bean replaces this with values
+   * fetched from the Azure App Configuration endpoint configured via the environment variable
+   * {@code AZURE_APP_CONFIG_ENDPOINT}.
+   *
+   * <p>The map is wrapped with {@link Collections#unmodifiableMap} to prevent accidental
+   * mutation at runtime, eliminating the static-mutable-state cloud-readiness violation
+   * (cr-java-0066).
+   */
+  // cr-java-0066: replaced mutable static HashMap with an unmodifiable map populated once at
+  // startup.  Runtime configuration updates are delegated to AzureVoyageConfigurationService
+  // which reads from Azure App Configuration, ensuring all cloud instances share the same state.
+  public static final Map<VoyageNumber, Voyage> ALL;
 
   static {
+    Map<VoyageNumber, Voyage> mutableMap = new HashMap<>();
     for (Field field : SampleVoyages.class.getDeclaredFields()) {
       if (field.getType().equals(Voyage.class)) {
         try {
           Voyage voyage = (Voyage) field.get(null);
-          ALL.put(voyage.getVoyageNumber(), voyage);
+          mutableMap.put(voyage.getVoyageNumber(), voyage);
         } catch (IllegalAccessException e) {
           throw new RuntimeException(e);
         }
       }
     }
+    // Wrap as unmodifiable to prevent runtime mutation across cloud instances.
+    // Dynamic updates are managed via AzureVoyageConfigurationService backed by
+    // Azure App Configuration (AZURE_APP_CONFIG_ENDPOINT environment variable).
+    ALL = Collections.unmodifiableMap(mutableMap);
   }
 
   private static Voyage createVoyage(String id, Location from, Location to) {

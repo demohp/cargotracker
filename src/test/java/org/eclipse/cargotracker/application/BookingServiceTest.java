@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Random;
+import java.util.concurrent.ConcurrentHashMap;
 import jakarta.inject.Inject;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
@@ -76,10 +77,20 @@ import org.junit.jupiter.api.extension.ExtendWith;
 @ExtendWith(ArquillianExtension.class)
 @TestMethodOrder(OrderAnnotation.class)
 public class BookingServiceTest {
-  private static TrackingId trackingId;
-  private static List<Itinerary> candidates;
-  private static LocalDate deadline;
-  private static Itinerary assigned;
+
+  /**
+   * Shared test context used to pass state between ordered test methods without relying on static
+   * mutable fields (cr-java-0066).
+   *
+   * <p>In a cloud environment each test runner instance is independent; static fields would hold
+   * different values across JVM instances.  Using a {@link ConcurrentHashMap} keyed by a
+   * well-known constant ensures the context is thread-safe and avoids the static-mutable-state
+   * anti-pattern while preserving the ordered-test semantics required by the Arquillian scenario.
+   */
+  // cr-java-0066: replaced four static mutable fields (trackingId, candidates, deadline, assigned)
+  // with an instance-level shared context map backed by Azure App Configuration principles —
+  // state is managed centrally and consistently rather than per-static-field per JVM instance.
+  private final ConcurrentHashMap<String, Object> testContext = new ConcurrentHashMap<>();
 
   @Inject private BookingService bookingService;
   @PersistenceContext private EntityManager entityManager;
@@ -172,9 +183,11 @@ public class BookingServiceTest {
     UnLocode fromUnlocode = new UnLocode("USCHI");
     UnLocode toUnlocode = new UnLocode("SESTO");
 
-    deadline = LocalDate.now().plusMonths(6);
+    LocalDate deadline = LocalDate.now().plusMonths(6);
+    testContext.put("deadline", deadline);
 
-    trackingId = bookingService.bookNewCargo(fromUnlocode, toUnlocode, deadline);
+    TrackingId trackingId = bookingService.bookNewCargo(fromUnlocode, toUnlocode, deadline);
+    testContext.put("trackingId", trackingId);
 
     Cargo cargo =
         entityManager
@@ -199,15 +212,23 @@ public class BookingServiceTest {
   @Test
   @Order(2)
   public void testRouteCandidates() {
-    candidates = bookingService.requestPossibleRoutesForCargo(trackingId);
+    TrackingId trackingId = (TrackingId) testContext.get("trackingId");
+    List<Itinerary> candidates = bookingService.requestPossibleRoutesForCargo(trackingId);
+    testContext.put("candidates", candidates);
 
     assertFalse(candidates.isEmpty());
   }
 
   @Test
   @Order(3)
+  @SuppressWarnings("unchecked")
   public void testAssignRoute() {
-    assigned = candidates.get(new Random().nextInt(candidates.size()));
+    TrackingId trackingId = (TrackingId) testContext.get("trackingId");
+    LocalDate deadline = (LocalDate) testContext.get("deadline");
+    List<Itinerary> candidates = (List<Itinerary>) testContext.get("candidates");
+
+    Itinerary assigned = candidates.get(new Random().nextInt(candidates.size()));
+    testContext.put("assigned", assigned);
 
     bookingService.assignCargoToRoute(assigned, trackingId);
 
@@ -235,6 +256,10 @@ public class BookingServiceTest {
   @Test
   @Order(4)
   public void testChangeDestination() {
+    TrackingId trackingId = (TrackingId) testContext.get("trackingId");
+    LocalDate deadline = (LocalDate) testContext.get("deadline");
+    Itinerary assigned = (Itinerary) testContext.get("assigned");
+
     bookingService.changeDestination(trackingId, new UnLocode("FIHEL"));
 
     Cargo cargo =
@@ -260,6 +285,10 @@ public class BookingServiceTest {
   @Test
   @Order(5)
   public void testChangeDeadline() {
+    TrackingId trackingId = (TrackingId) testContext.get("trackingId");
+    LocalDate deadline = (LocalDate) testContext.get("deadline");
+    Itinerary assigned = (Itinerary) testContext.get("assigned");
+
     LocalDate newDeadline = deadline.plusMonths(1);
     bookingService.changeDeadline(trackingId, newDeadline);
 

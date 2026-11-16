@@ -17,6 +17,11 @@ import org.eclipse.cargotracker.domain.model.cargo.TrackingId;
  *
  * <p>This is a programmatic hook into the JMS infrastructure to make cargo inspection
  * message-driven.
+ *
+ * <p>Migrated to Azure Service Bus using JMS 2.0 protocol support. The connection factory
+ * references the Azure Service Bus AMQP-based JMS 2.0 connection factory configured via
+ * the environment variable AZURE_SERVICEBUS_CONNECTION_STRING, and the destination maps
+ * to the Azure Service Bus queue "CargoHandledQueue".
  */
 @MessageDriven(
     activationConfig = {
@@ -24,8 +29,11 @@ import org.eclipse.cargotracker.domain.model.cargo.TrackingId;
           propertyName = "destinationType",
           propertyValue = "jakarta.jms.Queue"),
       @ActivationConfigProperty(
+          propertyName = "connectionFactoryLookup",
+          propertyValue = "java:comp/env/jms/AzureServiceBusConnectionFactory"),
+      @ActivationConfigProperty(
           propertyName = "destinationLookup",
-          propertyValue = "java:app/jms/CargoHandledQueue")
+          propertyValue = "java:comp/env/jms/CargoHandledQueue")
     })
 public class CargoHandledConsumer implements MessageListener {
 

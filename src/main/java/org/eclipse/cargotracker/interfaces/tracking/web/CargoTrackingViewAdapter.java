@@ -1,5 +1,6 @@
 package org.eclipse.cargotracker.interfaces.tracking.web;
 
+import jakarta.enterprise.inject.spi.CDI;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -38,7 +39,10 @@ public class CargoTrackingViewAdapter {
   }
 
   public Coordinates getOriginCoordinates() {
-    return CoordinatesFactory.find(cargo.getRouteSpecification().getOrigin());
+    // CoordinatesFactory is now a CDI ApplicationScoped bean (cr-java-0067).
+    // Obtain the managed instance via CDI.current() since CargoTrackingViewAdapter
+    // is a plain object (not a CDI bean) instantiated by the tracking web layer.
+    return coordinatesFactory().find(cargo.getRouteSpecification().getOrigin());
   }
 
   public String getDestinationName() {
@@ -50,7 +54,7 @@ public class CargoTrackingViewAdapter {
   }
 
   public Coordinates getDestinationCoordinates() {
-    return CoordinatesFactory.find(cargo.getRouteSpecification().getDestination());
+    return coordinatesFactory().find(cargo.getRouteSpecification().getDestination());
   }
 
   public String getLastKnownLocationName() {
@@ -64,7 +68,7 @@ public class CargoTrackingViewAdapter {
   }
 
   public Coordinates getLastKnownLocationCoordinates() {
-    return CoordinatesFactory.find(cargo.getDelivery().getLastKnownLocation());
+    return coordinatesFactory().find(cargo.getDelivery().getLastKnownLocation());
   }
 
   public String getStatusCode() {
@@ -149,6 +153,18 @@ public class CargoTrackingViewAdapter {
   /** @return An unmodifiable list of handling event view adapters. */
   public List<HandlingEventViewAdapter> getEvents() {
     return Collections.unmodifiableList(events);
+  }
+
+  // -------------------------------------------------------------------------
+  // Internal helpers
+  // -------------------------------------------------------------------------
+
+  /**
+   * Retrieves the CDI-managed {@link CoordinatesFactory} bean.
+   * Using CDI.current() because this adapter is a plain object, not a CDI bean.
+   */
+  private CoordinatesFactory coordinatesFactory() {
+    return CDI.current().select(CoordinatesFactory.class).get();
   }
 
   /** Handling event view adapter component. */

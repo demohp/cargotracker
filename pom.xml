@@ -72,6 +72,24 @@
       <version>14.0.5</version>
       <classifier>jakarta</classifier>
     </dependency>
+    <!-- Azure Blob Storage SDK – replaces local file system writes (cr-java-0062) -->
+    <dependency>
+      <groupId>com.azure</groupId>
+      <artifactId>azure-storage-blob</artifactId>
+      <version>12.27.1</version>
+    </dependency>
+    <!-- Jedis Redis client – Azure Cache for Redis distributed caching with TTL (cr-java-0067) -->
+    <dependency>
+      <groupId>redis.clients</groupId>
+      <artifactId>jedis</artifactId>
+      <version>5.1.5</version>
+    </dependency>
+    <!-- Azure Service Bus JMS 2.0 – replaces traditional JMS broker dependencies (cr-java-0103) -->
+    <dependency>
+      <groupId>com.microsoft.azure</groupId>
+      <artifactId>azure-servicebus-jms</artifactId>
+      <version>2.0.0</version>
+    </dependency>
     <!-- We need a Jersey specific dependency for property name constants -->
     <dependency>
       <groupId>org.glassfish.jersey.core</groupId>

@@ -1,5 +1,6 @@
 package org.eclipse.cargotracker.interfaces.booking.sse;
 
+import jakarta.enterprise.inject.spi.CDI;
 import org.eclipse.cargotracker.domain.model.location.Location;
 import org.eclipse.cargotracker.interfaces.Coordinates;
 import org.eclipse.cargotracker.interfaces.CoordinatesFactory;
@@ -22,6 +23,11 @@ public class LocationViewAdapter {
   }
 
   public Coordinates getCoordinates() {
-    return CoordinatesFactory.find(location);
+    // CoordinatesFactory is now a CDI ApplicationScoped bean (cr-java-0067).
+    // Obtain the managed instance via CDI.current() since LocationViewAdapter
+    // is a plain object (not a CDI bean) instantiated by RealtimeCargoTrackingViewAdapter.
+    CoordinatesFactory coordinatesFactory =
+        CDI.current().select(CoordinatesFactory.class).get();
+    return coordinatesFactory.find(location);
   }
 }

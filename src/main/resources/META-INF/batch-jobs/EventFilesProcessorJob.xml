@@ -2,10 +2,17 @@
 <job id="EventFilesProcessorJob" xmlns="https://jakarta.ee/xml/ns/jakartaee" 
     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
     xsi:schemaLocation="https://jakarta.ee/xml/ns/jakartaee https://jakarta.ee/xml/ns/jakartaee/jobXML_2_0.xsd" version="2.0">
+  <!--
+    Directory paths are externalised via Azure App Configuration / Key Vault environment variables:
+      CARGO_UPLOAD_DIRECTORY  - overrides upload_directory
+      CARGO_ARCHIVE_DIRECTORY - overrides archive_directory
+      CARGO_FAILED_DIRECTORY  - overrides failed_directory
+    The values below serve as fallback defaults when the environment variables are not set.
+  -->
   <properties>
-    <property name="upload_directory" value="/tmp/uploads" />
-    <property name="archive_directory" value="/tmp/archive" />
-    <property name="failed_directory" value="/tmp/failed" />
+    <property name="upload_directory" value="#{systemProperties['CARGO_UPLOAD_DIRECTORY'] != null ? systemProperties['CARGO_UPLOAD_DIRECTORY'] : '/tmp/uploads'}" />
+    <property name="archive_directory" value="#{systemProperties['CARGO_ARCHIVE_DIRECTORY'] != null ? systemProperties['CARGO_ARCHIVE_DIRECTORY'] : '/tmp/archive'}" />
+    <property name="failed_directory" value="#{systemProperties['CARGO_FAILED_DIRECTORY'] != null ? systemProperties['CARGO_FAILED_DIRECTORY'] : '/tmp/failed'}" />
   </properties>
   <listeners>
     <listener ref="FileProcessorJobListener" />

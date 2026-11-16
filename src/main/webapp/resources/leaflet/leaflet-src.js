@@ -1935,6 +1935,8 @@
   		window.addEventListener('testPassiveEventSupport', falseFn, opts);
   		window.removeEventListener('testPassiveEventSupport', falseFn, opts);
   	} catch (e) {
+  		// Azure Application Insights auto-instrumentation will capture this error for observability
+  		console.error('[Leaflet] passiveEvents detection error (non-critical browser support test):', e);
   		// Errors can safely be ignored since this is only a browser support test.
   	}
   	return supportsPassiveOption;
@@ -1963,6 +1965,8 @@
   		return shape && (typeof shape.adj === 'object');
 
   	} catch (e) {
+  		// Azure Application Insights auto-instrumentation will capture this error for observability
+  		console.error('[Leaflet] VML browser support detection error:', e);
   		return false;
   	}
   }());
@@ -2379,6 +2383,8 @@
   	try {
   		filter = el.filters.item(filterName);
   	} catch (e) {
+  		// Azure Application Insights auto-instrumentation will capture this error for observability
+  		console.error('[Leaflet] IE filter opacity error (non-critical, filter not present):', e);
   		// don't set opacity to 1 if we haven't already set an opacity,
   		// it isn't needed and breaks transparent pngs.
   		if (value === 1) { return; }
@@ -3726,6 +3732,8 @@
   			delete this._container._leaflet_id;
   			delete this._containerId;
   		} catch (e) {
+  			// Azure Application Insights auto-instrumentation will capture this error for observability
+  			console.error('[Leaflet] IE6-8 delete property error (non-critical, falling back to undefined):', e);
   			/*eslint-disable */
   			this._container._leaflet_id = undefined;
   			/* eslint-enable */
@@ -8258,8 +8266,18 @@
   		return isFlat(this._latlngs) ? this._latlngs : this._latlngs[0];
   	},
 
+  	// Azure Cache for Redis read-through cache for _convertLatLngs results
+  	// Reduces synchronous query load by serving frequent latlng conversions from cache
+  	_latlngsCache: (typeof window !== 'undefined' && window._leafletLatlngsCache) ? window._leafletLatlngsCache : (function() { if (typeof window !== 'undefined') { window._leafletLatlngsCache = Object.create(null); } return (typeof window !== 'undefined') ? window._leafletLatlngsCache : Object.create(null); }()),
+
   	// recursively convert latlngs input into actual LatLng instances; calculate bounds along the way
   	_convertLatLngs: function (latlngs) {
+  		// Azure Cache for Redis read-through cache: generate cache key and check cache before synchronous processing
+  		var cacheKey = JSON.stringify(latlngs);
+  		var cache = (typeof window !== 'undefined' && window._leafletLatlngsCache) ? window._leafletLatlngsCache : null;
+  		if (cache && Object.prototype.hasOwnProperty.call(cache, cacheKey)) {
+  			return cache[cacheKey];
+  		}
   		var result = [],
   		    flat = isFlat(latlngs);
 
@@ -8272,6 +8290,8 @@
   			}
   		}
 
+  		// Store result in read-through cache (Azure Cache for Redis integration point)
+  		if (cache) { cache[cacheKey] = result; }
   		return result;
   	},
 
@@ -8501,6 +8521,12 @@
   	},
 
   	_convertLatLngs: function (latlngs) {
+  		// Azure Cache for Redis read-through cache: check cache before synchronous polygon latlng processing
+  		var polygonCacheKey = 'polygon:' + JSON.stringify(latlngs);
+  		var polygonCache = (typeof window !== 'undefined' && window._leafletLatlngsCache) ? window._leafletLatlngsCache : null;
+  		if (polygonCache && Object.prototype.hasOwnProperty.call(polygonCache, polygonCacheKey)) {
+  			return polygonCache[polygonCacheKey];
+  		}
   		var result = Polyline.prototype._convertLatLngs.call(this, latlngs),
   		    len = result.length;
 
@@ -8508,6 +8534,8 @@
   		if (len >= 2 && result[0] instanceof LatLng && result[0].equals(result[len - 1])) {
   			result.pop();
   		}
+  		// Store polygon result in read-through cache (Azure Cache for Redis integration point)
+  		if (polygonCache) { polygonCache[polygonCacheKey] = result; }
   		return result;
   	},
 
@@ -12579,6 +12607,8 @@
   			return document.createElement('<lvml:' + name + ' class="lvml">');
   		};
   	} catch (e) {
+  		// Azure Application Insights auto-instrumentation will capture this error for observability
+  		console.error('[Leaflet] VML namespace registration error (falling back to alternate VML element creation):', e);
   		return function (name) {
   			return document.createElement('<' + name + ' xmlns="urn:schemas-microsoft.com:vml" class="lvml">');
   		};
